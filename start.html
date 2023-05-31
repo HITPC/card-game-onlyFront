@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAME</title>
+
+    <script src="./library/vue.js"></script>
+
+    <style>
+      *{
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100vh;
+      }
+    </style>
+
+    <link rel="stylesheet" href="./styleSheet/index.css">
+    <link rel="stylesheet" href="./styleSheet/startPage.css">
+    <link rel="stylesheet" href="./styleSheet/shopPage.css">
+
+</head>
+<body>
+  <div id="root" class="outer-container">
+      <!-- 开始的初始页面 -->
+      <div class="start-container" v-show="start">
+        <div class="login-container">
+          <h3 class="hello-text">WELCOME!</h3>
+          <input type="text" v-model="player.name" class="login-input" placeholder="输入名字！设置后不可修改">
+          <button class="login-btn" @click="startGame">开始！</button>
+        </div>
+      </div>
+      <!-- 详情展示页面 -->
+      <div class="start-container" v-show="isShowDetail">
+        <div class="login-container" style="overflow: auto;">
+          <h3 class="hello-text">{{showingObj.name}}</h3>
+          <span class="detail-quality-text" :style="getFontColor(showingObj.quality)">
+            {{showingObj.quality}}
+          </span>
+          <span class="detail-desc-text">{{showingObj.desc}}</span>
+          <button class="login-btn" @click="closeDetail">关闭</button>
+        </div>
+      </div>
+      <!-- 敌人属性展示页面 -->
+      <div class="enemyAttr-container" v-show="isShowEnemyAttr">
+        <div class="enemy-attr-container" style="overflow: auto;">
+          <!-- 注意！v-for是可以遍历对象的！ -->
+          <h3 class="enemy-attr-title">敌方属性</h3>
+          <div class="enemy-attr-item-container">
+              <span class="enemy-attr-item-span" v-for="(value,key,index) in enemy.attr" :key="index">{{key}}：{{value}}</span>
+          </div>
+          <button class="enemy-close-btn" @click="closeEnemyAttr">关闭</button>
+        </div>
+      </div>
+      <!-- 商店页面 -->
+      <div class="shop-container" v-show="isShowShop">
+
+        <!-- 商店的展示详情页面 -->
+        <div class="shop-detail-container" v-show="isShopShowDetail" style="overflow: auto;">
+          <div class="login-container" style="overflow: auto;">
+            <h3 class="hello-text">{{showingObj.name}}</h3>
+            <span class="detail-quality-text" :style="getFontColor(showingObj.quality)">
+              {{showingObj.quality}}
+            </span>
+            <span class="detail-desc-text">{{showingObj.desc}}</span>
+            <button class="login-btn" @click="closeShopDetail">关闭</button>
+            <button class="login-btn" @click="sellThing(showingObj.id, showingObj.type, getMoney(showingObj.buy, showingObj.quality))" style="bottom: -50px;">出售(+{{getMoney(showingObj.buy, showingObj.quality)}}G)</button>
+          </div>
+        </div>
+        <!-- 商店的正式展示页面 -->
+        <h1 class="shop-main-title">商店</h1>
+        <button class="shop-refresh-btn" :style="judgeGoldEnough(getFreshShopGold())" @click="shopFresh(getFreshShopGold())">刷新(-{{getFreshShopGold()}}G)</button>
+        <span class="shop-gold">金币：{{player.money}}</span>
+        <div class="shop-list-container">
+            <div 
+            class="shop-item-origin"
+            v-for="(item, index) in shopArr"
+            :style="getShopLockStyle(item.isLock)"
+            :key="index"
+            >
+              <div :class="getShopItemClass(item.quality)">
+                <span class="shop-title-span" :style="getFontColor(item.quality)">
+                  {{item.name}}
+                </span>
+                <span class="shop-qua-span" :style="getFontColor(item.quality)">
+                  {{item.quality}}
+                </span>
+                <span class="shop-desc-span">
+                  {{item.desc}}
+                </span>
+                <span class="shop-cost-span2" v-if="item.type=='技能'">
+                  花费行动力：{{item.cost}}
+                </span>
+                <span class="shop-cost-span">
+                  金币：{{item.buy}}
+                </span>
+              </div>
+              <button class="shop-buy-btn" :style="judgeGoldEnough(item.buy)" 
+              @click="shopBuyThing(item.id, item.type, item.buy)">购买</button>
+              <button class="shop-lock-btn" @click="shopLockThing(item.id, item.isLock)">{{item.isLock?"解锁":"锁住"}}</button>
+            </div>
+          </div>
+          <div class="shop-hasgot-things">
+            <div class="shop-equ-container">
+              <h3 class="head-text">装备</h3>
+              <div style="margin-bottom: 40px;"></div>
+              <div class="shop-equ-item" 
+              v-for="(item, index) in player.equList" 
+              :key="index" 
+              :style="getFontColor(item.quality)"
+              @click="showShopDetail(item.id, item.type)"
+              >
+                  {{item.name}}
+              </div>
+            </div>
+            <div class="shop-skill-container">
+              <h3 class="head-text">技能</h3>
+              <div style="margin-bottom: 40px;"></div>
+              <div class="shop-skill-item" 
+              v-for="(item, index) in player.skillList" 
+              :key="index" 
+              :style="getFontColor(item.quality)"
+              @click="showShopDetail(item.id, item.type)"
+              >
+                  {{item.name}}
+              </div>
+            </div>
+            <div class="shop-attr-container">
+              <h3 class="head-text">属性</h3>
+              <div style="margin-bottom: 40px;"></div>
+              <!-- 注意！v-for是可以遍历对象的！ -->
+              <div class="shop-attr-item" v-for="(value,key,index) in player.afterAttr" :key="index">
+                  {{key}}：{{value}}
+              </div>
+            </div>
+          </div>
+          <button class="shop-start-btn" @click="leaveShop">GO</button>
+      </div>
+
+      <!-- 战斗结束的页面 -->
+      <div class="finish-container" v-show="isFightFinish">
+        <div class="finish-detail-container">
+          <h3 class="finish-title">{{player.healthNow>0?'胜利！':'失败'}}</h3>
+          <div class="finish-victory" v-if="player.healthNow>0" style="overflow: auto;">
+            <span class="finish-text">你已经达到了{{cengNum}}层，下面是{{cengNum+1}}层</span>
+            <span class="finish-gold-text">获得 <span style="color: gold; font-size: 20px;font-weight: 600;">{{goldGet}}</span> 金币</span>
+            <button class="finish-btn" @click="goShop">点击继续，前去商店</button>
+          </div>
+          <div class="gain-container" v-show="isShowGain">
+            <span class="finish-gain">获得加成：</span>
+            <div class="gainner-get">
+              <span>{{attrGet}}</span>
+            </div>
+          </div>
+          <div class="finish-defeat" v-if="player.healthNow<=0">
+            <span class="finish-text">你达到了{{cengNum-1}}层，倒在了{{cengNum}}层，被    {{enemy.name}} 斩于马下</span>
+            <span class="finish-text-record" v-if="cengNum>maxCengNum">恭喜您破纪录了！</span>
+            <button class="finish-btn" @click="finishAll">结束</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 正式进入的页面 -->
+      <!-- 顶部血条以及名字部分 -->
+      <div class="top-container">
+        <span class="name-left">
+          {{player.name}}
+          ---
+          {{player.healthNow}}/{{player.health}}
+        </span>
+        <div class="blood-container-left">
+          <div class="blood-left" style="width: 100%;" ref="yourBlood"></div>
+        </div>
+        <div class="cost-container">
+          行动力：{{player.feeNow}}/{{player.feeTotal}}
+          <span v-show="player.skillSpecial.id220" style="color: blueviolet;">(法术免疫)</span>
+          <span v-show="player.skillSpecial.id221" style="color: orangered;">(物理免疫)</span>
+          <span v-show="player.skillSpecial.id225||player.equSpecial.id148" style="color: darkgoldenrod;">(受伤减半)</span>
+          <span v-show="player.equSpecial.id152" style="color: red;">(未受伤回合{{id152Count}}/5)</span>
+          <span v-show="player.skillSpecial.id224">(额外费:{{feeLastTurnGet}})</span>
+          <span v-show="player.skillSpecial.id228" style="color: cornflowerblue;">(无视防御)</span>
+          <span v-show="player.equSpecial.id153&&(!id153Used)" style="color: rgb(0, 255, 166);">可复活</span>
+          <span v-show="player.skillSpecial.id229" style="color: royalblue;">(免疫)</span>
+          <span v-show="player.equSpecial.id150" style="color: rgb(206, 65, 225);">(无视闪避)</span>
+        </div>
+
+        <span class="ceng-span">当前层数：{{cengNum}}</span>
+        <span class="max-ceng-span">之前的最大层数：{{maxCengNum}}</span>
+
+        <span class="name-right">
+          {{enemy.name}}
+          ---
+          {{enemy.healthNow}}/{{enemy.health}}
+          <a href="javascript:void(0)" class="enemy-attr" @click="showEnemyAttr">属性</a>
+        </span>
+        <div class="blood-container-right">
+          <div class="blood-right" style="width: 100%;" ref="enemyBlood"></div>
+        </div>
+        <button class="finish-turn-btn" @click="finishTurn">点击结束回合(或按空格键)</button>
+        <div class="show-your-turn" v-show="isJump">
+          跳过敌方回合！
+        </div>
+        <div class="show-your-turn" v-show="showIsYourTurn">
+          你的回合！
+        </div>
+        <div class="show-your-turn" v-show="showNo">
+          行动力不足！
+        </div>
+        <div class="show-your-turn" v-show="showYouLive">
+          您已复活！
+        </div>
+      </div>
+
+      <!-- 中间区域 -->
+      <div class="show-num-container">
+        <span :style="isBoom?'color: red;':''" class="num-player" v-show="!isMyTurn">{{isBoom?"暴击":""}}{{numGetPlayer}}</span>
+        <span style="color: green;" class="num-player" v-show="isMyTurn&&numPlusPlayer!=='+0'">{{numPlusPlayer}}</span>
+        <img src="./media/U.jpg" class="player-img" ref="player-i" :class="isPlayerPlay?'play-ani1':''">
+        <span style="color: green;" class="num-enemy" v-show="!isMyTurn&&numPlusEnemy!=='+0'">{{numPlusEnemy}}</span>
+        <span :style="isBoom?'color: red;':''" class="num-enemy" v-show="isMyTurn">{{isBoom?"暴击":""}}{{numGetEnemy}}</span>
+        <img src="./media/monster.jpg" class="monster-img" ref="enemy-i" :class="isEnemyPlay?'play-ani2':''">
+      </div>
+
+      <!-- 下部装备技能区 -->
+      <div class="bottom-container">
+        <div class="equ-container">
+          <h3 class="head-text">已有装备</h3>
+          <div style="margin-bottom: 40px;"></div>
+          
+          <div v-for="(item, index) in player.equList" 
+          class="equ-item" 
+          :key="index"
+          :style="getFontColor(item.quality)"
+          @click="showDetail(item.id)"
+          >
+            {{item.name}}
+          </div>
+        </div>
+
+        <div class="skill-container">
+          <div 
+          v-for="(item, index) in player.skillList" 
+          class="skill-item-origin" 
+          :style="isMyTurn?'':'pointer-events: none;'"
+          :key="index"
+          @click="dealSkill(item.id)"
+          >
+          <div :class="getSkillClass(item.quality)">
+            <span class="skill-title-span" :style="getFontColor(item.quality)">
+              {{item.name}}
+            </span>
+            <span class="skill-qua-span" :style="getFontColor(item.quality)">
+              {{item.quality}}
+            </span>
+            <span class="skill-desc-span">
+              {{item.desc}}
+            </span>
+            <span class="skill-cost-span">
+              花费行动力：{{item.cost}}
+            </span>
+          </div>
+          </div>
+        </div>
+
+        <div class="attr-container">
+          <h3 class="head-text">你的属性</h3>
+          <div style="margin-bottom: 40px;"></div>
+          <!-- 注意！v-for是可以遍历对象的！ -->
+          <div class="attr-item" v-for="(value,key,index) in player.afterAttr" :key="index">
+              <span class="attr-item-span">{{key}}：{{value}}</span>
+          </div>
+        </div>
+      </div>
+  </div>
+</body>
+
+<!-- 导入装备列表 -->
+<script src="./Data/equipment.js"></script>
+<!-- 导入技能列表 -->
+<script src="./Data/skills.js"></script>
+<!-- 导入随机生成敌人姓名 -->
+<script src="./API/BeforeFightStart/getName.js"></script>
+<!-- 导入得到商店随机物品 -->
+<script src="./API/AfterFight/getShopThing.js"></script>
+
+<script>
+  // import axios from "axios";
+  var vm = new Vue({
+    el: '#root',
+    data: {
+        player:{
+          name: "",
+          health: 100,
+          healthNow: 100,
+          equList: [],
+          skillList: [
+            skillList[0],
+            skillList[2],       
+          ],
+          //下面是基础属性
+          attr: {
+            "物理攻击": 10,
+            "法术攻击": 10,
+            "物理防御": 8,
+            "法术防御": 8,
+            "暴击率": 0,
+            "闪避率": 0,
+            "吸血": 0,
+            "暴击效果": 1.5,
+          },
+          //下面是计算了各种加成之后的值
+          afterAttr:{
+            "物理攻击": 10,
+            "法术攻击": 10,
+            "物理防御": 8,
+            "法术防御": 8,
+            "暴击率": 0,
+            "闪避率": 0,
+            "吸血": 0,
+            "暴击效果": 1.5,
+          },
+          skillSpecial:{
+            id204: false,
+            id206: false,
+            id218: false,
+            id219: false,
+            id220: false,
+            id221: false,
+            id224: false,
+            id225: false,
+            id228: false,
+            id229: false,
+          },
+          equSpecial: {
+            id147: false,
+            id148: false,
+            id149: false,
+            id150: false,
+            id151: false,
+            id152: false,
+            id153: false,
+            id154: false,
+          },
+          feeNow: 10,
+          feeTotal: 10,
+          money: 0,
+        },
+        enemy:{
+          name: getEnemyName(),
+          health: 100,
+          healthNow: 100,
+          attr: {
+            "物理攻击": 5,
+            "法术攻击": 5,
+            "物理防御": 4,
+            "法术防御": 4,
+            "暴击率": 0,
+            "闪避率": 0,
+            "吸血": 0,
+            "暴击效果": 2,
+          },
+        },
+        start: true,
+        cengNum: 1,
+        maxCengNum: 0,
+        isShowDetail: false,
+        showingObj: {},
+        isShowShop: false,
+        freshShopTimes: 0,
+        shopArr: [],
+        lockShopArr: [],
+        isShopShowDetail: false,
+        isFightFinish: false,
+        isShowEnemyAttr: false,
+        isShowGain: false,
+        isMyTurn: true,
+        numGetPlayer: '',
+        numGetEnemy: '',
+        isBoom: false, 
+        lastTurnHealth: {},
+        feeLastTurnGet: 0,
+        harmYouDid: 0,
+        id153Used: false,
+        id152Count: 0,
+        id152Harm: 0,
+        isPlayerPlay: false,
+        isEnemyPlay: false,
+        numPlusEnemy: '',
+        numPlusPlayer: '',
+        showIsYourTurn: false,
+        showNo: false,
+        showYouLive: false,
+        isJump: false,
+        isOut: false,
+        beforeMiss: 0,
+    },
+
+    mounted() {
+      this.getMaxCeng();
+      this.getName();
+      this.bind()
+    },
+
+    beforeDestroy() {
+      window.removeEventListener("keyup", this.dealKeyUp, false);
+    },
+
+    methods: {
+      bind(){
+        window.addEventListener("keyup", this.dealKeyUp);
+      },
+      dealKeyUp(e){
+        if(e.keyCode === 32){
+          this.finishTurn();
+        }
+      },
+      getName(){
+        if(localStorage.getItem('name')!==null){
+          this.player.name = localStorage.getItem('name');
+        }else{
+          this.player.name = "";
+        }
+      },
+      getMaxCeng(){
+        if(localStorage.getItem('max')!==null){
+          this.maxCengNum = localStorage.getItem('max');
+        }else{
+          this.maxCengNum = "无";
+        }
+      },
+      getFontColor(qua){
+        switch(qua){
+          case "传说":{
+            return "color: rgb(251, 127, 10); font-style: italic; font-size: 18px; font-weight: 900;"
+          }
+          case "神话":{
+            return "color: red; font-weight: 600;"
+          }
+          case "史诗":{
+            return "color: blueviolet; font-weight: 600;"
+          }
+          case "稀有":{
+            return "color: blue; font-weight: 600;"
+          }
+          case "普通":{
+            return "color: black; font-weight: 600;"
+          }
+        }
+      },
+      getSkillClass(qua){
+        switch(qua){
+          case "传说":{
+            return "skill-item-legend"
+          }
+          case "神话":{
+            return "skill-item-mythology"
+          }
+          case "史诗":{
+            return "skill-item-epic"
+          }
+          case "稀有":{
+            return "skill-item-rare"
+          }
+          case "普通":{
+            return "skill-item-normal"
+          }
+        }
+      },
+      showDetail(id){
+        let i;
+        for(i=0; i<this.player.equList.length; ++i){
+          if(this.player.equList[i].id == id){
+            this.showingObj = this.player.equList[i];
+            this.isShowDetail = true;
+            return true
+          }
+        }
+      },
+      closeDetail(){
+        this.isShowDetail = false;
+      },
+      //下面是商店相关的
+      getFreshShopGold(){
+        let cengNumLink = this.cengNum*3
+        if(cengNumLink > 30) cengNumLink = 30;
+        return (cengNumLink+this.freshShopTimes*4)*1;
+      },
+      getShopItemClass(qua){
+        switch(qua){
+          case "传说":{
+            return "shop-item-legend"
+          }
+          case "神话":{
+            return "shop-item-mythology"
+          }
+          case "史诗":{
+            return "shop-item-epic"
+          }
+          case "稀有":{
+            return "shop-item-rare"
+          }
+          case "普通":{
+            return "shop-item-normal"
+          }
+        }
+      },
+      judgeGoldEnough(value){
+        if(this.player.money < value){
+          return "color: red;";
+        }else{
+          return "";
+        }
+      },
+      showShopDetail(id, type){
+        this.isShopShowDetail = true;
+        let i;
+        if(type=="装备"){
+          for(i=0; i<this.player.equList.length; ++i){
+            if(this.player.equList[i].id == id){
+              this.showingObj = this.player.equList[i];
+              this.isShopShowDetail = true;
+              return true;
+            }
+          }
+        }else{
+          for(i=0; i<this.player.skillList.length; ++i){
+            if(this.player.skillList[i].id == id){
+              this.showingObj = this.player.skillList[i];
+              this.isShopShowDetail = true;
+              return true;
+            }
+          }
+        }
+      },
+      showEnemyAttr(){
+        this.isShowEnemyAttr = true
+      },
+      closeEnemyAttr(){
+        this.isShowEnemyAttr = false
+      },
+      closeShopDetail(){
+        this.isShopShowDetail = false;
+      },
+      getMoney(oldVal, qua){
+        switch(qua){
+          case "传说":{
+            return Math.ceil(oldVal*0.8);
+          }
+          case "神话":{
+            return Math.ceil(oldVal*0.6);
+          }
+          case "史诗":{
+            return Math.ceil(oldVal*0.5);
+          }
+          case "稀有":{
+            return Math.ceil(oldVal*0.4);
+          }
+          case "普通":{
+            return Math.ceil(oldVal*0.2);
+          }
+        }
+      },
+      sellThing(id, type, money){
+        if(type=="装备"){
+          let i;
+          for(i=0; i<this.player.equList.length; ++i){
+            if(this.player.equList[i].id == id){
+              this.player.equList.splice(i, 1);
+              this.player.money+=money;
+              this.isShopShowDetail = false;
+              this.countEqu(false, id);//重新计算装备属性加成
+              return true;
+            }
+          }
+        }else{
+          let i;
+          for(i=0; i<this.player.skillList.length; ++i){
+            if(this.player.skillList[i].id == id){
+              this.player.skillList.splice(i, 1);
+              this.player.money+=money;
+              this.isShopShowDetail = false;
+              return true;
+            }
+          }
+        }
+      },
+      initShop(){
+        this.freshShopTimes = 0;
+        var i;
+        var objArr = [];  
+        objArr=getShopThing(this.lockShopArr, this.player.equList, this.player.skillList, this.cengNum, 4-this.lockShopArr.length);
+        this.shopArr = objArr.concat(this.lockShopArr);
+      },
+
+      enemyTurn(){
+        this.isBoom  = false;
+        if(this.player.equSpecial.id149&&this.harmYouDid%2===0){
+          this.isJump = true;
+          setTimeout(()=>{
+            this.isJump = false;
+          }, 300);
+          //回合结束，初始化你的回合 跳过
+          this.numGetEnemy = '';
+          this.numPlusPlayer = '';
+          if(this.player.skillSpecial.id224){
+            this.player.feeNow = this.player.feeTotal;
+            this.player.feeNow += this.feeLastTurnGet;
+            this.feeLastTurnGet = 0;
+            this.player.skillSpecial.id224 = false;
+          }else{
+            this.player.feeNow = this.player.feeTotal;
+          }
+          
+          if(this.player.skillSpecial.id219){
+            if(this.isOut){
+              this.player.afterAttr["闪避率"] = this.dealNum(this.beforeMiss);
+            }else{
+              this.player.afterAttr["闪避率"]-=0.2;
+              this.player.afterAttr["闪避率"] = this.dealNum(this.player.afterAttr["闪避率"]);
+            }
+            this.player.skillSpecial.id219 = false;
+            this.isOut = false;
+          }
+          if(this.player.skillSpecial.id220){
+            this.player.skillSpecial.id220 = false;
+          }
+          if(this.player.skillSpecial.id221){
+            this.player.skillSpecial.id221 = false;
+          }
+          if(this.player.skillSpecial.id225){
+            this.player.skillSpecial.id225 = false;
+          }
+          if(this.player.skillSpecial.id229){
+            this.player.skillSpecial.id225 = false;
+          }
+          if(this.player.equSpecial.id152){
+            if(this.id152Harm === 0){
+              ++this.id152Count;
+              if(this.id152Count>=5){
+                this.enemy.healthNow = 0;
+              }
+            }else{
+              this.id152Count = 0;
+            }
+          }
+          setTimeout(()=>{
+            this.isMyTurn = true;
+            this.showIsYourTurn = true;
+          }, 400);
+          setTimeout(()=>{
+            this.showIsYourTurn = false;
+          }, 1500)
+          return 0;
+        }
+        
+        //进行敌方回合
+        this.isEnemyPlay  = true;
+        let str;
+        if((this.enemy.attr["物理攻击"]-(this.player.afterAttr["物理防御"]*0.3))>(this.enemy.attr["法术攻击"]-(this.player.afterAttr["法术防御"]*0.35))){
+          str = "物理";
+        }else{
+          str = "法术";
+        }
+        if(this.player.skillSpecial.id220){
+          str = "物理";
+        }
+        if(this.player.skillSpecial.id221){
+          str = "法术";
+        }
+        this.doHarm("你", this.enemy.attr[str+"攻击"]*2, str);
+        setTimeout(()=>{
+          this.isEnemyPlay = false;
+        }, 500)
+
+
+        //回合结束，初始化你的回合
+        this.numGetEnemy = '';
+        this.numPlusPlayer = '';
+        if(this.player.skillSpecial.id224){
+          this.player.feeNow = this.player.feeTotal;
+          this.player.feeNow += this.feeLastTurnGet;
+          this.feeLastTurnGet = 0;
+          this.player.skillSpecial.id224 = false;
+        }else{
+          this.player.feeNow = this.player.feeTotal;
+        }
+        
+        if(this.player.skillSpecial.id219){
+          if(this.isOut){
+            this.player.afterAttr["闪避率"] = this.dealNum(this.beforeMiss);
+          }else{
+            this.player.afterAttr["闪避率"]-=0.2;
+            this.player.afterAttr["闪避率"] = this.dealNum(this.player.afterAttr["闪避率"]);
+          }
+          this.player.skillSpecial.id219 = false;
+          this.isOut = false;
+        }
+        if(this.player.skillSpecial.id220){
+          this.player.skillSpecial.id220 = false;
+        }
+        if(this.player.skillSpecial.id221){
+          this.player.skillSpecial.id221 = false;
+        }
+        if(this.player.skillSpecial.id225){
+          this.player.skillSpecial.id225 = false;
+        }
+        if(this.player.skillSpecial.id229){
+          this.player.skillSpecial.id225 = false;
+        }
+        if(this.player.equSpecial.id152){
+          if(this.id152Harm === 0){
+            ++this.id152Count;
+            if(this.id152Count>=5){
+              this.enemy.healthNow = 0;
+            }
+          }else{
+            this.id152Count = 0;
+          }
+        }
+
+        setTimeout(()=>{
+          this.isMyTurn = true;
+          this.showIsYourTurn = true;
+          this.isBoom  = false;
+        }, 700);
+        setTimeout(()=>{
+          this.showIsYourTurn = false;
+        }, 1500);
+      },
+
+      finishTurn(){
+        this.isBoom = false;
+        this.numGetPlayer = '';
+        this.numPlusEnemy = '';
+        this.isMyTurn = false;
+        this.lastTurnHealth = this.player.healthNow;
+        this.enemyTurn();
+      },
+
+      //处理复杂的逻辑-------------------------------------------------------------
+      doHarm(ToWho, value, type){//造成伤害
+        if(value<=0){
+          value = 0;
+        }
+        if(ToWho==="对手"){
+          //计算暴击以及暴击效果然后得到最终伤害值
+          this.isBoom = false;
+          let r = Math.floor(Math.random()*100+1);//产生1-100的随机数
+          let valid = this.player.afterAttr["暴击率"]*100;
+          if(r<=valid || this.player.equSpecial.id147){//暴击
+            if(this.player.afterAttr["暴击效果"]>=1){
+              value = Math.ceil(value * this.player.afterAttr["暴击效果"]);
+            }
+            this.isBoom = true;
+            this.player.skillSpecial.id206 = false;
+          }else if(this.player.skillSpecial.id206){//特殊技能强制暴击
+            if(this.player.afterAttr["暴击效果"]>=1){
+              value = Math.ceil(value * this.player.afterAttr["暴击效果"]);
+            }
+            this.player.skillSpecial.id206 = false;
+            this.isBoom = true;
+          }
+          if(this.player.skillSpecial.id204){
+            this.recoveryHealth("你", Math.floor(value*0.5));
+            this.player.skillSpecial.id204 = false;
+          }
+
+          //是不是无视防御
+          if(this.player.skillSpecial.id228){
+            this.player.skillSpecial.id228 = false;
+          }else{
+            if(type==="物理"){
+              if(this.enemy.attr["物理防御"]<0){
+                value-=0;
+              }else{
+                value-=Math.ceil(this.enemy.attr["物理防御"]*0.3);
+              }
+              
+            }else if(type==="法术"){
+              if(this.enemy.attr["法术防御"]<0){
+                this.enemy.attr["法术防御"]=0;
+                value-=0;
+              }else{
+                value-=Math.ceil(this.enemy.attr["法术防御"]*0.35);
+              }
+              
+            }
+            if(value<=0){
+              value = 1;
+            }
+          }
+          //计算是不是闪避了
+          if(this.enemy.attr["闪避率"]>0&&(!this.player.equSpecial.id150)){
+            let m = Math.floor(Math.random()*100+1);//产生1-100的随机数
+            let miss = this.enemy.attr["闪避率"]*100;
+            if(m<=miss){//成功闪避
+              this.numGetEnemy = '闪避！';
+              return true;
+            }
+          }
+          //最终造成伤害
+          this.enemy.healthNow-=value
+          if(this.player.equSpecial.id149){
+            this.harmYouDid = value;
+          }
+          //处理吸血
+          if(this.player.afterAttr["吸血"]>0){
+            if(this.player.skillSpecial.id218){
+              this.player.skillSpecial.id218 = false;
+              this.recoveryHealth("你", Math.floor(2*this.player.afterAttr["吸血"]*value));
+            }else{
+              this.recoveryHealth("你", Math.floor(this.player.afterAttr["吸血"]*value));
+            }
+          }
+          //展示出去
+          value = value.toString();
+          this.numGetEnemy = `(${type})-${value}`;
+        }else if(ToWho==="你"){//对你造成伤害
+          if(this.player.skillSpecial.id229){
+            this.numGetPlayer = '免疫';
+            this.id152Harm = 0;
+            return true;
+          }
+          if(this.player.skillSpecial.id220&&type==="法术"){
+            this.numGetEnemy = '免疫';
+            this.id152Harm = 0;
+            return true;
+          }
+          if(this.player.skillSpecial.id221&&type==="物理"){
+            this.numGetEnemy = '免疫';
+            this.id152Harm = 0;
+            return true;
+          }
+          //计算暴击以及暴击效果然后得到最终伤害值
+          this.isBoom = false;
+          let r = Math.floor(Math.random()*100+1);//产生1-100的随机数
+          let valid = this.enemy.attr["暴击率"]*100;
+          if(r<=valid){//暴击
+            value = Math.ceil(value * this.enemy.attr["暴击效果"]);
+            this.isBoom = true;
+          }
+          if(type==="物理"){
+            if(this.player.afterAttr["物理防御"]<0){
+              value-=0;
+            }else{
+              value-=Math.ceil(this.player.afterAttr["物理防御"]*0.3);
+            }
+            
+          }else if(type==="法术"){
+            if(this.player.afterAttr["法术防御"]<0){
+              value-=0;
+            }else{
+              value-=Math.ceil(this.player.afterAttr["法术防御"]*0.35);
+            }
+            
+          }
+          if(value<=0){
+            value = 1;
+          }
+          //计算是不是闪避了
+          if(this.enemy.attr["闪避率"]>0){
+            let m = Math.floor(Math.random()*100+1);//产生1-100的随机数
+            let miss = this.player.afterAttr["闪避率"]*100;
+            if(m<=miss){//成功闪避
+              this.numGetPlayer = '闪避！';
+              this.id152Harm = 0;
+              return true;
+            }
+          }
+          if(this.player.equSpecial.id148){
+            value = Math.ceil(value/2);
+          }
+          //是不是伤害减半？
+          if(this.player.skillSpecial.id225){
+            value = Math.ceil(value/2);
+          }
+          //最终造成伤害
+          this.player.healthNow-=value;
+          this.id152Harm = value;
+          //处理吸血
+          if(this.enemy.attr["吸血"]>0){
+            this.recoveryHealth("对手", Math.floor(this.enemy.attr["吸血"]*value));
+          }
+          //展示出去
+          value = value.toString();
+          this.numGetPlayer = `(${type})-${value}`;
+        }
+      },
+
+      recoveryHealth(ToWho, value){//恢复生命值
+        if(ToWho==="你"){
+         if(this.player.healthNow+value<=this.player.health){
+          this.player.healthNow+=value;
+          value = value.toString();
+          this.numPlusPlayer=`+${value}`;
+         }else{
+          let str;
+          let num = this.player.health-this.player.healthNow;
+          num = num.toString();
+          this.numPlusPlayer=`+${num}`;
+          this.player.healthNow = this.player.health;
+         }
+        }else if(ToWho==="对手"){
+          if(this.enemy.healthNow+value<=this.enemy.health){
+            this.enemy.healthNow+=value;
+            value = value.toString();
+            this.numPlusEnemy=`+${value}`;
+          }else{
+            let num = this.enemy.health-this.enemy.healthNow;
+            num = num.toString();
+            this.numPlusEnemy=`+${num}`;
+            this.enemy.healthNow = this.enemy.health;
+          }
+        }
+      },
+
+      //技能处理函数
+      dealSkill(id){
+        // console.log(id);
+        this.isBoom  = false;
+        this.isPlayerPlay = true;
+        setTimeout(()=>{
+          this.isPlayerPlay  =false;
+        }, 400);
+        if(this.player.feeNow<skillList[id-200].cost){
+          this.showNo = true;
+          setTimeout(()=>{
+            this.showNo = false;
+          }, 1500);
+          return false;
+        }
+        switch(id){
+          case 200: {
+            this.doHarm("对手", this.player.afterAttr["物理攻击"], "物理");
+            this.player.feeNow-=3;
+            break;
+          }
+
+          case 201: {
+            this.player.afterAttr["物理防御"]+=Math.floor(this.player.afterAttr["物理防御"]*0.1);
+            this.player.feeNow-=3;
+            break;
+          }
+
+          case 202:{
+            this.doHarm("对手", this.player.afterAttr["法术攻击"], "法术");
+            this.player.feeNow-=3;
+            break;
+          }
+
+          case 203: {
+            this.player.afterAttr["法术防御"]+=Math.floor(this.player.afterAttr["法术防御"]*0.1);
+            this.player.feeNow-=3;
+            break;
+          }
+
+          case 204: {
+            this.player.skillSpecial.id204 = true;
+            this.player.feeNow-=6;
+            break;
+          }
+
+          case 205:{
+            this.recoveryHealth("你", Math.ceil(this.player.health*0.045));
+            this.player.feeNow-=1;
+            break;
+          }
+
+          case 206:{
+            this.player.skillSpecial.id206 = true;
+            this.player.feeNow-=5;
+            break;
+          }
+
+          case 207:{
+            this.enemy.attr["物理攻击"]-=Math.floor(this.enemy.attr["物理攻击"]*0.1);
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 208:{
+            this.enemy.attr["物理防御"]-=Math.floor(this.enemy.attr["物理防御"]*0.1);
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 209:{
+            this.enemy.attr["法术防御"]-=Math.floor(this.enemy.attr["法术防御"]*0.1);
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 210:{
+            this.enemy.attr["法术攻击"]-=Math.floor(this.enemy.attr["法术攻击"]*0.1);
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 211:{
+            this.doHarm("对手", Math.ceil(this.player.afterAttr["物理攻击"]*0.65), "物理");
+            this.player.feeNow-=2;
+            break;
+          }
+
+          case 212:{
+            this.doHarm("对手", Math.ceil(this.player.afterAttr["法术攻击"]*0.65), "法术");
+            this.player.feeNow-=2;
+            break;
+          }
+
+          case 213:{
+            this.player.afterAttr["物理防御"]+=Math.floor(this.player.attr["物理防御"]*0.1);
+            this.player.afterAttr["法术防御"]+=Math.floor(this.player.attr["法术防御"]*0.1);
+            this.player.feeNow-=3;
+            break;
+          }
+
+          case 214:{
+            this.doHarm("对手", this.player.afterAttr["物理防御"], "物理");
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 215:{
+            this.doHarm("对手", this.player.afterAttr["物理防御"], "法术");
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 216:{
+            this.doHarm("对手", this.player.afterAttr["法术防御"], "法术");
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 217:{
+            this.doHarm("对手", this.player.afterAttr["法术防御"], "物理");
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 218:{
+            this.player.skillSpecial.id218 = true;
+            this.player.feeNow-=2;
+            break; 
+          }
+
+          case 219:{
+            if(this.player.afterAttr["闪避率"]+0.2<=1){
+              this.player.afterAttr["闪避率"]+=0.2;
+              this.player.skillSpecial.id219 = true;
+            }else{
+              this.beforeMiss = this.player.afterAttr["闪避率"];
+              this.isOut = true;
+              this.player.afterAttr["闪避率"] = 1;
+              this.player.skillSpecial.id219 = true;
+            }
+            this.player.feeNow-=4;
+            break;
+          }
+
+          case 220: {
+            this.player.skillSpecial.id220 = true;
+            this.player.feeNow-=6;
+            break;
+          }
+
+          case 221: {
+            this.player.skillSpecial.id221 = true;
+            this.player.feeNow-=6;
+            break;
+          }
+
+          case 222:{
+            this.player.healthNow = this.lastTurnHealth;
+            this.player.feeNow-=6;
+            break;
+          } 
+
+          case 223:{
+            this.recoveryHealth("你", Math.ceil(this.player.health*0.2));
+            this.player.afterAttr["物理防御"]+=Math.ceil(this.player.attr["物理防御"]*0.05);
+            this.player.afterAttr["法术防御"]+=Math.ceil(this.player.attr["法术防御"]*0.05);
+            this.player.feeNow-=8;
+            break;
+          }
+
+          case 224:{
+            this.player.skillSpecial.id224 = true;
+            this.feeLastTurnGet =  this.player.feeNow;
+            this.player.feeNow = 0;
+            break; 
+          }
+
+          case 225:{
+            this.player.skillSpecial.id225 = true;
+            this.player.feeNow-=6;
+            break;
+          }
+
+          case 226:{
+            let init = false;
+            if(this.player.healthNow>this.enemy.health){
+              this.player.healthNow = this.enemy.healthNow;
+              this.enemy.healthNow = this.enemy.health;
+              init = true;
+            }
+            if(this.enemy.healthNow>this.player.health){
+              this.enemy.healthNow = this.player.healthNow;
+              this.player.healthNow = this.player.health;
+              init = true;
+            }
+
+            if(!init){
+              let temp = this.player.healthNow;
+              this.player.healthNow = this.enemy.healthNow;
+              this.enemy.healthNow  =temp;
+            }
+
+            this.feeNow-=5;
+            break;
+          }
+
+          case 227:{
+            let harm = Math.floor((this.player.health - this.player.healthNow)/2);
+            this.recoveryHealth("你", this.player.health - this.player.healthNow);
+            this.doHarm("对手", harm, "法术");
+            this.player.feeNow-=10;
+            break;
+          }
+
+          case 228:{
+            this.player.skillSpecial.id228 = true;
+            this.player.feeNow-=0;
+            break;
+          }
+
+          case 229:{
+            this.player.skillSpecial.id229 = true;
+            this.player.feeNow-=10;
+            break;
+          }
+
+          case 230: {
+            this.enemy.healthNow = 0;
+            this.player.feeNow-=30;
+            break;
+          }
+
+        }
+      },
+      
+      //处理身上的装备属性
+      countEqu(on=true, id){
+        // console.log(this.player.attr); 
+        this.player.afterAttr = JSON.parse(JSON.stringify(this.player.attr));
+        //此处加上装备加成统一计算
+        if(!on){//githe 脱掉特殊装备
+          if(id===115){
+            this.player.health-=10;
+          }else if(id===116){
+            this.player.health-=10;
+          }else if(id===117){
+            this.player.health-=20;
+          }else if(id===123){
+            this.player.health+=10;
+          }else if(id===136){
+            this.player.health-=70;
+          }else if(id===142){
+            this.player.health-=30;
+          }else if(id===145){
+            this.player.health-=100;
+          }else if(id===147){
+            this.player.equSpecial.id147 = false;
+          }else if(id===148){
+            this.player.equSpecial.id148 = false;
+          }else if(id===149){
+            this.player.equSpecial.id149 = false;
+          }else if(id===150){
+            this.player.equSpecial.id150 = false;
+          }else if(id===151){
+            this.player.equSpecial.id151 = false;
+            this.player.health-=100;
+          }else if(id===152){
+            this.player.equSpecial.id152 = false;
+            this.id152Count = 0;
+            this.id152Harm = 0;
+          }else if(id===153){
+            this.player.equSpecial.id153 = false;
+            this.id153Used = false;
+          }else if(id===154){
+            this.player.equSpecial.id154  =false;
+          }
+          
+        }
+        this.player.equList.forEach((item)=>{
+          this.dealEqu(on, item.id);
+        })
+      }, 
+
+      //装备处理函数
+      dealEqu(on, id){//on为false的时候，计算为脱下装备 平常的不用 用于处理复杂的装备的问题。
+        let afterAttr = this.player.afterAttr;
+        switch(id){
+          case 100:{
+            ++afterAttr["物理防御"];
+            break;
+          }
+
+          case 101:{
+            ++afterAttr["物理攻击"];
+            break;
+          }
+
+          case 102:{
+            ++afterAttr["法术攻击"];
+            break;
+          }
+
+          case 103:{
+            ++afterAttr["法术防御"];
+            break;
+          }
+
+          case 104:{
+            afterAttr["吸血"]+=0.08;
+            break;
+          }
+
+          case 105:{
+            afterAttr["闪避率"]+=0.01;
+            break;
+          }
+          case 106:{
+            afterAttr["暴击率"]+=0.08;
+            break;
+          }
+          case 107:{
+            afterAttr["物理攻击"]+=2;
+            afterAttr["物理防御"]+=2;
+            afterAttr["法术防御"]-=4;
+            break;
+          }
+          case 108:{
+            afterAttr["法术攻击"]+=3;
+            afterAttr["闪避率"]-=0.01;
+            break;
+          }
+          case 109:{
+            afterAttr["物理攻击"]+=5;
+            afterAttr["物理防御"]-=2;
+            afterAttr["法术防御"]-=1;
+            break;
+          }
+          case 110:{
+            ++afterAttr["物理攻击"];
+            ++afterAttr["物理防御"];
+            afterAttr["暴击率"]+=0.04;
+            break;
+          }
+          case 111:{
+            afterAttr["暴击效果"]+=0.1;
+            break;
+          }
+          case 112:{
+            afterAttr["法术攻击"]+=2;
+            afterAttr["暴击率"]+=0.03;
+            afterAttr["闪避率"]-=0.01;
+            break;
+          }
+          case 113:{
+            afterAttr["法术防御"]+=2;
+            afterAttr["物理防御"]+=2;
+            afterAttr["闪避率"]-=0.01;
+            break;
+          }
+          case 114:{
+            afterAttr["暴击率"]+=0.1;
+            afterAttr["暴击效果"]+=0.1;
+            --afterAttr["物理攻击"];
+            break;
+          }
+          case 115:{
+            afterAttr["物理攻击"]+=4;
+            this.player.health+=10;
+            break;
+          }
+          case 116:{
+            ++afterAttr["物理防御"];
+            this.player.health+=10;
+            break;
+          }
+          case 117:{
+            ++afterAttr["物理防御"];
+            afterAttr["闪避率"]+=0.01;
+            this.player.health+=20;
+            break;
+          }
+          case 118:{
+            afterAttr["物理攻击"]+=6;
+            afterAttr["闪避率"]-=0.03;
+            break;
+          }
+          case 119:{
+            afterAttr["物理攻击"]+=15;
+            afterAttr["物理防御"]-=5;
+            break;
+          }
+          case 120:{
+            afterAttr["物理攻击"]+=2;
+            afterAttr["暴击率"]+=0.1;
+            break;
+          }
+          case 121:{
+            --afterAttr["物理攻击"];
+            afterAttr["法术防御"]+=3;
+            break;
+          }
+          case 122:{
+            afterAttr["法术防御"]+=3;
+            afterAttr["暴击率"]-=0.08;
+            break;
+          }
+          case 123:{
+            this.player.health-=10;
+            afterAttr["法术攻击"]+=15;
+            break;
+          }
+          case 124:{
+            afterAttr["物理防御"]+=5;
+            break;
+          }
+          case 125:{
+            afterAttr["物理攻击"]+=5;
+            break;
+          }
+          case 126:{
+            afterAttr["法术攻击"]-=2;
+            afterAttr["吸血"]+=0.2;
+            break;
+          }
+          case 127:{
+            afterAttr["物理攻击"]+=3;
+            afterAttr["法术攻击"]+=3;
+            afterAttr["物理防御"]+=3;
+            afterAttr["法术防御"]+=3;
+            break;
+          }
+          case 128:{
+            afterAttr["吸血"]-=0.16;
+            afterAttr["法术防御"]+=5;
+            break;
+          }
+          case 129:{
+            afterAttr["暴击效果"]-=0.2;
+            afterAttr["法术防御"]+=4;
+            afterAttr["物理防御"]+=4;
+            break;
+          }
+          case 130:{
+            afterAttr["暴击率"]-=0.08;
+            afterAttr["法术攻击"]-=2;
+            afterAttr["吸血"]+=0.32;
+            break;
+          }
+          case 131:{
+            afterAttr["物理攻击"]+=4;
+            afterAttr["法术防御"]+=2;
+            break;
+          }
+          case 132:{
+            afterAttr["法术攻击"]+=4;
+            afterAttr["物理防御"]+=2;
+            break;
+          }
+          case 133:{
+            afterAttr["暴击效果"]+=0.2;
+            afterAttr["物理攻击"]-=3;
+            break;
+          }
+          case 134:{
+            afterAttr["物理攻击"]+=3;
+            afterAttr["法术攻击"]+=3;
+            afterAttr["物理防御"]-=3;
+            afterAttr["法术防御"]-=3;
+            break;
+          }
+          case 135:{
+            afterAttr["物理攻击"]-=3;
+            afterAttr["法术攻击"]-=3;
+            afterAttr["物理防御"]+=3;
+            afterAttr["法术防御"]+=3;
+            break;
+          }
+          case 136:{
+            this.player.health+=70;
+            break;
+          }
+          case 137:{
+            afterAttr["闪避率"]+=0.1;
+            afterAttr["法术攻击"]+=2;
+            break;
+          }
+          case 138:{
+            afterAttr["吸血"]+=0.2;
+            afterAttr["法术攻击"]+=8;
+            afterAttr["物理防御"]-=2;
+            break;
+          }
+          case 139:{
+            afterAttr["物理防御"]+=8;
+            afterAttr["法术防御"]+=8;
+            afterAttr["吸血"]-=0.2;
+            break;
+          }
+          case 140:{
+            afterAttr["闪避率"]+=0.1;
+            afterAttr["暴击效果"]+=0.3;
+            break;
+          }
+          case 141:{
+            afterAttr["暴击率"]+=0.2;
+            afterAttr["暴击效果"]+=0.3;
+            break;
+          }
+          case 142:{
+            afterAttr["物理防御"]+=10;
+            afterAttr["法术防御"]+=10;
+            this.player.health+=30;
+            break;
+          }
+          case 143:{
+            afterAttr["物理攻击"]+=15;
+            afterAttr["法术防御"]+=4;
+            break;
+          }
+          case 144:{
+            afterAttr["法术攻击"]+=13;
+            afterAttr["物理防御"]+=6;
+            break;
+          }
+          case 145:{
+            this.player.health+=100;
+            afterAttr["暴击效果"]+=0.3;
+            afterAttr["暴击率"]+=0.16;
+            break;
+          }
+          case 146:{
+            afterAttr["物理防御"]+=5;
+            afterAttr["法术防御"]+=5;
+            afterAttr["闪避率"]+=0.08;
+            afterAttr["暴击率"]+=0.08;
+            afterAttr["暴击效果"]+=0.1;
+            break;
+          }
+          case 147:{
+            this.player.equSpecial.id147 = true;
+            if(this.player.attr["暴击率"]>=0.65){
+              this.player.attr["物理攻击"]+=20;
+              this.player.attr["法术攻击"]+=20;
+            }
+            break;
+          }
+          case 148:{
+            afterAttr["物理防御"]+=10;
+            afterAttr["法术防御"]+=10;
+            this.player.equSpecial.id148 = true;
+            break;
+          }
+          case 149:{
+            afterAttr["法术攻击"]+=25;
+            this.player.equSpecial.id149 = true;
+            break;
+          }
+          case 150:{
+            afterAttr["物理攻击"]+=25;
+            this.player.equSpecial.id150 = true;
+            break;
+          }
+          case 151:{
+            this.player.health+=100;
+            this.player.equSpecial.id151 = true;
+            break;
+          }
+          case 152:{
+            this.player.equSpecial.id152 = true;
+            break;
+          }
+          case 153:{
+            this.player.equSpecial.id153 = true;
+            break;
+          }
+          case 154:{
+            this.player.equSpecial.id154 = true;
+            break;
+          }
+
+        } 
+        
+        afterAttr["闪避率"] = this.dealNum(afterAttr["闪避率"]);
+        afterAttr["暴击率"] = this.dealNum(afterAttr["暴击率"]);
+        afterAttr["吸血"] = this.dealNum(afterAttr["吸血"]);
+        afterAttr["暴击效果"] = this.dealNum(afterAttr["暴击效果"]);
+      },
+
+      initNextCeng(){
+        //初始化下一层的内容。(包括怪物的血量之类的东西)
+        //均置血量为最大值 费用为满
+        //给上装备上的加成 然后置afterAttr
+        this.countEqu();
+        this.player.healthNow = this.player.health;
+        this.enemy.healthNow = this.enemy.health;
+        if(this.player.equSpecial.id154){
+          this.player.feeTotal = 20;
+        }else{
+          this.player.feeTotal = 10;
+        }
+        this.player.feeNow = this.player.feeTotal;
+      },
+      leaveShop(){
+        this.isShowShop = false;
+        this.isBoom = false;
+        //同时为下一层数据初始化
+        ++this.cengNum;
+        this.id153Used = false;
+        this.isJump = false;
+        this.showYouLive = false;
+        this.enemy.name = getEnemyName()
+        this.initNextCeng()
+        this.numGetEnemy = '';
+        this.numGetPlayer  = '';
+        this.numPlusEnemy = '';
+        this.numPlusPlayer = '';
+      },
+      shopFresh(money){
+        if(this.player.money < money){
+          alert('钱不够了！');
+        }else{
+          this.player.money = this.player.money - money;
+          ++this.freshShopTimes;
+          var i;
+          var objArr = [];  
+          objArr=getShopThing(this.lockShopArr, this.player.equList, this.player.skillList, this.cengNum, 4-this.lockShopArr.length);
+          this.shopArr = objArr.concat(this.lockShopArr);
+        }
+      },
+      shopBuyThing(id, type, money){
+        if(this.player.money < money){
+          alert('钱不够！');
+          return false;
+        }else if(type=="技能"&&this.player.skillList.length>=6){
+          alert('最多拥有6个技能！');
+          return false;
+        }else if(type==="装备"&&this.player.equList.length>=18){
+          alert('最多拥有18件装备！');
+          return false;
+        }else{  
+          this.player.money-=money;
+          var i
+          if(type=="装备"){
+            for(i=0; i<this.shopArr.length; ++i){
+              if(this.shopArr[i].id == id){
+                this.shopLockThing(id, true);//顺带着解锁了
+                this.player.equList.push(this.shopArr[i]);
+                this.shopArr.splice(i, 1);
+                this.countEqu(true);//重新计算装备属性加成
+                return true;
+              }
+            }
+          }else{
+            for(i=0; i<this.shopArr.length; ++i){
+              if(this.shopArr[i].id == id){
+                this.shopLockThing(id, true);//顺带着解锁了
+                this.player.skillList.push(this.shopArr[i]);
+                this.shopArr.splice(i, 1);
+                return true;
+              }
+            }
+          }
+        }
+      },
+      shopLockThing(id, isLock){
+        var obj;
+        var i;
+        var j;
+        if(isLock){
+          for(i=0; i<this.shopArr.length; ++i){
+            if(this.shopArr[i].id == id){
+              //在商店中展示为已经解锁
+              this.shopArr[i].isLock = false;
+              //从锁定的数组中除名
+              for(j=0; j<this.lockShopArr.length; ++j){
+                if(this.lockShopArr[j].id == id){
+                  this.lockShopArr.splice(j, 1);
+                  return true;
+                }
+              }
+            }
+          }
+        }else{
+          for(i=0; i<this.shopArr.length; ++i){
+          if(this.shopArr[i].id == id){
+            this.shopArr[i].isLock = true;
+            this.lockShopArr.push(this.shopArr[i]);
+            return true;
+          }
+        }
+        }
+        
+      },
+      getShopLockStyle(isLock){
+        if(isLock){
+          return "background-color: gray;"
+        }else{
+          return "";
+        }
+      },
+      goShop(){//前往商店
+        this.initShop()
+        this.isShowShop = true
+        this.isFightFinish = false
+        this.isShowGain = false
+        this.isShowEnemyAttr = false
+        this.isShowDetail = false
+      },
+      finishAll(){//已经结束
+        if(this.cengNum > localStorage.getItem('max')){
+          localStorage.setItem('max', this.cengNum);
+        }
+        location.reload();
+      },
+
+      //游戏的主要进程控制函数
+      // async Main(){
+      //   //进入战斗前
+
+      //   //战斗时
+
+      //   //战斗后
+      // },
+
+      /*
+        现在很多处理函数是事件的绑定函数，因此主要进程函数反而显得不是很重要了。
+      */
+
+      startGame(){
+        if(this.player.name === ""){
+          alert("请输入名字！")
+        }else{
+          this.start = false;
+          localStorage.setItem('name', this.player.name);
+        }
+        // this.Main()
+      },
+
+      dealNum(num){//处理函数 
+        let str = num.toString();
+        if(str[0] === '-'){
+          if(str.length > 5){
+            str = str.substring(0, 5);
+          }
+        }else{
+          if(str.length > 4){
+            str = str.substring(0, 4);
+          }
+        }
+        return +str;
+      },
+    },
+
+    watch: {
+      "player.healthNow": {
+        handler(){
+          if(this.player.healthNow<=0){
+            if(this.player.equSpecial.id153&&(!this.id153Used)){
+              this.player.healthNow = this.player.health;
+              this.id153Used = true;
+              this.showYouLive = true;
+              setTimeout(()=>{
+                this.showYouLive = false;
+              }, 500);
+            }else{
+              this.isFightFinish = true;
+              this.isShowEnemyAttr  =false;
+              this.isShowDetail = false;
+              this.$refs.yourBlood.style.width = "0%";
+            }
+          }else{
+            this.$refs.yourBlood.style.width = (this.player.healthNow/this.player.health*100) + "%";
+          }
+        },
+      },
+      "enemy.healthNow": {
+        handler(){
+          if(this.enemy.healthNow<=0){
+            this.isFightFinish = true;
+            this.isShowGain = true
+            this.isShowEnemyAttr  =false;
+            this.isShowDetail = false;
+            this.$refs.enemyBlood.style.width = "0%";
+          }else{
+            this.$refs.enemyBlood.style.width = (this.enemy.healthNow/this.enemy.health*100) + "%";
+          }
+        }
+      },
+    },
+
+    computed: {
+      goldGet(){//处理战斗结束之后的金钱获取
+        if(this.isFightFinish){
+          let money = Math.floor(this.cengNum*22 + this.player.healthNow*0.1);
+          this.player.money+=money;
+          return money;
+        }else{
+          return 0;
+        }
+      },
+      attrGet(){//处理战斗结束之后的属性加成
+        if(this.isFightFinish){
+          let health = Math.floor(this.cengNum*9 + this.player.health*0.08);
+          let psAttack = this.cengNum;
+          let mgAttack = this.cengNum;
+          let psDef = this.cengNum;
+          let mgDef = this.cengNum;
+
+          if(this.cengNum <= 5){
+            var Mhealth = Math.floor(this.cengNum*9.6 + this.player.health*0.05);
+            var MpsAttack = this.cengNum+1;
+            var MmgAttack = this.cengNum+1;
+            var MpsDef = this.cengNum+1;
+            var MmgDef = this.cengNum+1;
+          }
+
+          //给加成双倍的东西留的位置
+          let str = ''
+          if(this.player.equSpecial.id151){
+            health*=1.25;
+            psAttack*=1.25;
+            mgDef*=1.25;
+            psDef*=1.25;
+            mgAttack*=1.25;
+            health = Math.ceil(health);
+            psAttack = Math.ceil(psAttack);
+            mgDef = Math.ceil(mgDef);
+            psDef = Math.ceil(psDef);
+            mgAttack = Math.ceil(mgAttack);
+            str = '(已加倍!)'
+          }
+          //player的自然属性成长 
+          this.player.health+=health;
+          this.player.attr["物理攻击"]+=psAttack;
+          this.player.attr["法术攻击"]+=mgAttack;
+          this.player.attr["法术防御"]+=mgDef;
+          this.player.attr["物理防御"]+=psDef;
+
+          this.player.afterAttr["物理攻击"]+=psAttack;
+          this.player.afterAttr["法术攻击"]+=mgAttack;
+          this.player.afterAttr["法术防御"]+=mgDef;
+          this.player.afterAttr["物理防御"]+=psDef;
+          
+          //enemy的自然属性成长 给随机值
+          if(this.cengNum <= 5){
+            this.enemy.health +=Mhealth;
+            this.enemy.attr["物理攻击"]+=MpsAttack;
+            this.enemy.attr["法术攻击"]+=MmgAttack;
+            this.enemy.attr["法术防御"]+=MmgDef;
+            this.enemy.attr["物理防御"]+=MpsDef;
+            if(this.enemy.attr["闪避率"]+0.05<=0.12){
+              this.enemy.attr["闪避率"]+=0.05;
+              this.enemy.attr["闪避率"] = this.dealNum(this.enemy.attr["闪避率"]);
+            }
+            if(this.enemy.attr["暴击率"]+0.05<=0.16){
+              this.enemy.attr["暴击率"]+=0.05;
+              this.enemy.attr["暴击率"] = this.dealNum(this.enemy.attr["暴击率"]);
+            }
+            if(this.enemy.attr["吸血"]+0.05<=0.3){
+              this.enemy.attr["吸血"]+=0.05;
+              this.enemy.attr["吸血"] = this.dealNum(this.enemy.attr["吸血"]);
+            }
+          }else{
+            this.enemy.health = Math.floor(Math.random()*41)+this.player.health-20;
+            this.enemy.attr["物理攻击"]=Math.floor(Math.random()*17)+this.player.afterAttr["物理攻击"]-8;
+            this.enemy.attr["法术攻击"]=Math.floor(Math.random()*17)+this.player.afterAttr["法术攻击"]-8;;
+            this.enemy.attr["法术防御"]=Math.floor(Math.random()*17)+this.player.afterAttr["法术防御"]-8;;
+            this.enemy.attr["物理防御"]=Math.floor(Math.random()*17)+this.player.afterAttr["物理防御"]-8;
+            let rand
+            rand = this.dealNum(Math.random())-0.3;
+            if(rand<=0.2){
+              this.enemy.attr["闪避率"]=this.dealNum(rand);
+            }else{
+              this.enemy.attr["闪避率"]=0.2;
+            }
+            rand = this.dealNum(Math.random())-0.1;
+            rand = this.dealNum(rand);
+            if(rand<=0.3){
+              this.enemy.attr["暴击率"]=this.dealNum(rand);
+            }else{
+              this.enemy.attr["暴击率"]=0.3;
+            }
+            rand = this.dealNum(Math.random())-0.2;
+            rand = this.dealNum(rand);
+            if(rand<=0.3){
+              this.enemy.attr["吸血"]=this.dealNum(rand);
+            }else{
+              this.enemy.attr["吸血"]=0.3;
+            }
+          }
+
+          // this.player.afterAttr = JSON.parse(JSON.stringify(this.player.attr));
+
+          return `最大生命值+${health}，物理攻击+${psAttack}，法术攻击+${mgAttack}，物理防御+${psDef}，法术防御+${mgDef} ${str}`;
+        }
+      }
+    }
+  })
+</script>
+</html>
